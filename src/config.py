@@ -7,6 +7,9 @@ from yaml import safe_load
 
 @dataclass
 class Config:
+    CLOUDFLARE_API_KEY: str
+    CLOUDFLARE_ACCOUNT_ID: str
+    ELEVENLABS_API_KEY: str
     OPENAI_API_KEY: str
     OPENAI_PROMPTS_PATH: str
     SOURCE_DIR: str

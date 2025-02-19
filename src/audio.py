@@ -1,13 +1,13 @@
-import nltk
-import numpy as np
-import soundfile as sf
-from bark import SAMPLE_RATE
-from bark.api import semantic_to_waveform
-from bark.generation import generate_text_semantic, preload_models
+from pydub import AudioSegment
 
 from src.logger import logger
 
-nltk.download("punkt")
+from .elevenlabs import ElevenLabsAPI
+
+
+def get_audio_duration(file_path):
+    audio = AudioSegment.from_file(file_path)
+    return len(audio) / 1000  # Convert milliseconds to seconds
 
 
 def generate_voice_over(splitted_output: list, output_dir: str) -> float:
@@ -19,33 +19,23 @@ def generate_voice_over(splitted_output: list, output_dir: str) -> float:
     :return: The duration of the generated voice-over audio in frames.
     """
     logger.info("Generate voiceover")
-    preload_models()
+
     output_text = " ".join(
         (item.text for item in splitted_output if item.type == "text")
     )
-    sentences = nltk.sent_tokenize(output_text)
 
-    GEN_TEMP = 0.7
-    SPEAKER = "v2/en_speaker_2"
-    silence = np.zeros(int(0.25 * SAMPLE_RATE))  # quarter second of silence
-    pieces = []
-    for sentence in sentences:
-        semantic_tokens = generate_text_semantic(
-            sentence,
-            history_prompt=SPEAKER,
-            temp=GEN_TEMP,
-            min_eos_p=0.05,  # this controls how likely the generation is to end
-        )
-
-        audio_array = semantic_to_waveform(
-            semantic_tokens,
-            history_prompt=SPEAKER,
-        )
-        pieces += [audio_array, silence.copy()]
-    output = np.concatenate(pieces)
     file_path = f"{output_dir}/voiceover.wav"
-    sf.write(file_path, output, SAMPLE_RATE)
+
+    # Use ElevenLabsAPI to generate voice-over
+    elevenlabs_api = ElevenLabsAPI()
+    elevenlabs_api.generate_voice(
+        text=output_text, character="Chris", filepath=file_path
+    )
+
     logger.info(f"Voice over saved OK {file_path}")
-    # calculate duration
-    temp = sf.SoundFile(file_path)
-    return temp.frames / temp.samplerate
+    logger.info(
+        f"ElevenLabs API remaining characters: {elevenlabs_api.get_remaining_characters()}"
+    )
+
+    # Calculate and return duration using get_audio_duration
+    return get_audio_duration(file_path)
