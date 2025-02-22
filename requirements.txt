@@ -2,6 +2,6 @@ openai
 PyYAML==6.0
 moviepy==1.0.3
 soundfile==0.12.1
-pytube==15.0.0
+pytubefix
 pydub
 

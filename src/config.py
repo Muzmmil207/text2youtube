@@ -12,6 +12,7 @@ class Config:
     ELEVENLABS_API_KEY: str
     OPENAI_API_KEY: str
     OPENAI_PROMPTS_PATH: str
+    PEXELS_API_KEY: str
     SOURCE_DIR: str
     PROCESS_DIR: str
     OUTPUT_DIR: str

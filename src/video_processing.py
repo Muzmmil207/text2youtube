@@ -6,12 +6,10 @@ from typing import Union
 
 from requests import get
 
+from src.config import cfg
 from src.logger import logger
 from src.utils import Elem
 from src.yt_download import download_yt_video
-
-STORYBLOCKS_BASE_URL = "https://www.storyblocks.com"
-STORYBLOCKS_SEARCH_URL = f"{STORYBLOCKS_BASE_URL}/api/video/search"
 
 
 @dataclass
@@ -21,39 +19,56 @@ class Video:
     url: str
 
 
-def get_storyblocks_video_urls(
-    search_terms: list[str], n_results: int, cookies: dict
-) -> list[Video]:
+def find_video(videos):
+    target_width = 1280
+    target_height = 720
+
+    # Find the video with the target resolution
+    for video in videos:
+        if video['width'] == target_width and video['height'] == target_height:
+            return video
+    return
+    # If not found, return the video with the next lower resolution
+    lower_quality_video = videos[0]
+    for video in videos:
+        if video['width'] < target_width and video['height'] < target_height:
+            if lower_quality_video is None or (
+                video['width'] > lower_quality_video['width']
+                and video['height'] > lower_quality_video['height']
+            ):
+                lower_quality_video = video
+
+    return lower_quality_video
+
+
+def get_pexels_video_urls(search_terms: list[str], n_results: int) -> list[Video]:
     query_n_results = max(n_results, 10)
+
+    url = "https://api.pexels.com/videos/search"
+    headers = {"Authorization": cfg.PEXELS_API_KEY}
     params = {
-        "categories": "",
-        "templateType": "",
-        "searchTerm": "-".join(search_terms),
-        "video_quality": "HD",
-        "sort": "most_relevant",
-        "page": 1,
-        "results_per_page": query_n_results,
-        "load-more": "false",
-        "search-origin": "search_bar",
-        "min_duration": 5,
-        "max_duration": 60,
-        "has_talent_released": "",
-        "has_property_released": "",
+        "query": "-".join(search_terms),
+        "orientation": "landscape",
+        "per_page": query_n_results,
     }
-    response = get(STORYBLOCKS_SEARCH_URL, params=params, cookies=cookies)
+
+    response = get(url, headers=headers, params=params)
     if response.status_code != 200:
         raise HTTPException(f"Bad status code {response.status_code}")
 
-    n_results = min(n_results, len(response.json()["data"]["stockItems"]))
+    data = response.json()
+
+    n_results = min(n_results, len(data["videos"]))
 
     return sample(
         [
             Video(
-                item["stockItem"]["title"],
-                int(item["stockItem"]["duration"]),
-                f'{STORYBLOCKS_BASE_URL}{item["stockItemFormats"][-1]["downloadUrl"]}',
+                "title",
+                int(item["duration"]),
+                find_video(item["video_files"])["link"],
             )
-            for item in response.json()["data"]["stockItems"]
+            for item in data["videos"]
+            if find_video(item["video_files"])["link"]
         ],
         n_results,
     )
@@ -63,7 +78,6 @@ def save_videos(
     elements: list[Elem],
     total_duration: float,
     file_output_dir: Union[str, Path],
-    cookies: dict,
     yt_proba: int,
 ) -> None:
     """
@@ -86,21 +100,18 @@ def save_videos(
         if randint(0, 100) <= yt_proba:
             download_yt_video(duration, file_output_dir, n_paragraph, query)
         else:
-            save_storyblocks(cookies, duration, file_output_dir, n_paragraph, query)
+            save_pexels(duration, file_output_dir, n_paragraph, query)
 
 
-def save_storyblocks(
-    cookies: dict,
+def save_pexels(
     duration: Union[int, float],
     file_output_dir: str,
     n_paragraph: int,
     query: str,
 ) -> None:
     """
-    Save videos from Storyblocks or fallback to saving from YouTube.
+    Save videos from pexels or fallback to saving from YouTube.
 
-    :param cookies: The cookies required for Storyblocks authentication.
-    :type cookies: dict
     :param duration: The desired total duration in seconds.
     :type duration: int
     :param file_output_dir: The directory where the videos will be saved.
@@ -111,8 +122,9 @@ def save_storyblocks(
     :type query: str
     :return: None
     """
-    videos: list[Video] = get_storyblocks_video_urls(
-        query.split(), int(duration / 5), cookies
+    videos: list[Video] = get_pexels_video_urls(
+        query.split(),
+        int(duration / 5),
     )
     if not videos:
         download_yt_video(duration, file_output_dir, n_paragraph, query)
@@ -126,22 +138,20 @@ def save_storyblocks(
     # iterate through urls and save them in video folder
     for v_num, url in enumerate((video.url for video in videos)):
         v_path = f"{file_output_dir}/videos/{n_paragraph}_{v_num}.mp4"
-        download_storyblocks_video(url, cookies, v_path)
+        download_pexels_video(url, v_path)
 
 
-def download_storyblocks_video(url: str, cookies: dict, path: Union[str, Path]) -> None:
+def download_pexels_video(url: str, path: Union[str, Path]) -> None:
     """
     Downloads a video from the specified URL using the provided cookies and saves it to the given file path.
 
     :param url: The URL of the video to download.
     :type url: str
-    :param cookies: A dictionary containing cookies required for authentication, if needed.
-    :type cookies: dict
     :param path: The path where the downloaded video will be saved.
     :type path: Union[Path, str]
     :return: None
     """
-    response = get(url, cookies=cookies)
+    response = get(url)
     if response.status_code != 200:
         raise HTTPException(f"Bad status code {response.status_code}")
 

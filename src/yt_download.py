@@ -4,8 +4,8 @@ from random import randint
 from typing import Optional, Union
 
 from moviepy.editor import VideoFileClip
-from pytube import Search, Stream
-from pytube.exceptions import VideoUnavailable
+from pytubefix import Search, Stream
+from pytubefix.exceptions import VideoUnavailable
 
 from src.logger import logger
 

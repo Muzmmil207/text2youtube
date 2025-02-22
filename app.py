@@ -15,7 +15,7 @@ from src.utils import (
 from src.video import get_audio, get_stock_videos, make_video
 from src.video_processing import save_videos
 
-cookies = get_cookies()
+OUTPUT_DIR = './videos'
 
 
 def run(file_path: Path):
@@ -43,15 +43,15 @@ def run(file_path: Path):
     audio_duration = generate_voice_over(splitted_output, file_output_dir)
 
     # save videos for further use
-    save_videos(splitted_output, audio_duration, file_output_dir, cookies, cfg.YT_PROBA)
+    save_videos(splitted_output, audio_duration, file_output_dir, cfg.YT_PROBA)
 
     # generate video
-    # make_video(
-    #     splitted_output,
-    #     get_audio(file_output_dir),
-    #     get_stock_videos(f"{file_output_dir}/videos"),
-    #     f"{OUTPUT_DIR}/{file_path.stem}.mp4",
-    # )
+    make_video(
+        splitted_output,
+        get_audio(file_output_dir),
+        get_stock_videos(f"{file_output_dir}/videos"),
+        f"{OUTPUT_DIR}/{file_path.stem}.mp4",
+    )
 
 
 def main():
