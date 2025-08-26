@@ -1,17 +1,20 @@
-import requests
+import os
+
+from openai import OpenAI
 
 from src.config import cfg
 from src.logger import logger
 
 
 class Openai:
-    def __init__(self, prompt="", model="@cf/meta/llama-3-8b-instruct"):
-        self.api_url = F"https://api.cloudflare.com/client/v4/accounts/{cfg.CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
-        self.api_key = cfg.CLOUDFLARE_API_KEY
+    def __init__(self, key="", prompt="", model="gemini-1.5-flash-latest"):
+        self.client = OpenAI(api_key=key or os.getenv("OPENAI_API_KEY"))
+        self.client.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
         self.system_prompt = self.get_system_prompt(
             f"{cfg.OPENAI_PROMPTS_PATH}/{prompt}"
         )
-        logger.info(f"API model initialized. Model: {model}. Prompt: {prompt}")
+        self.model = model
+        logger.info(f"OpenAI model initialized. Model: {model}. Prompt: {prompt}")
 
     @staticmethod
     def get_system_prompt(filename):
@@ -24,24 +27,31 @@ class Openai:
             {"role": "user", "content": content},
         ]  # Set the system prompt
 
-    def generate_response(self, content):
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        data = {'max_tokens': 1500, "messages": self.generate_message(content)}
-        response = requests.post(self.api_url, headers=headers, json=data)
+    @staticmethod
+    def get_text_from_response(response):
+        completion_text = ""
 
-        if response.status_code == 200:
-            data = response.json()
-            return data['result']['response']
-        else:
-            logger.error(
-                f"API call failed with status code {response.status_code}: {response.text}"
-            )
-            return None
+        for event in response:
+            if not event.choices:
+                continue
+            event_text = event.choices[0].delta.content
+            if event_text:
+                completion_text += event_text  # append the text
+
+        return completion_text
+
+    def generate_response(self, content):
+        logger.info("Getting response...")
+        messages = self.generate_message(content)  # Generate message for chat
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=True,
+            max_tokens=1500,
+        )
+        return self.get_text_from_response(response)
 
 
 def run_openai_generation(input_data: str, prompt: str):
-    model = Openai(prompt)
+    model = Openai(cfg.OPENAI_API_KEY, prompt)
     return model.generate_response(input_data)

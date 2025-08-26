@@ -1,5 +1,5 @@
 openai
-PyYAML==6.0
+PyYAML
 moviepy==1.0.3
 soundfile==0.12.1
 pytubefix
