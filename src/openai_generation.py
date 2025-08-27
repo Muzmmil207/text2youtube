@@ -7,7 +7,7 @@ from src.logger import logger
 
 
 class Openai:
-    def __init__(self, key="", prompt="", model="gemini-1.5-flash-latest"):
+    def __init__(self, key="", prompt="", model="gemini-2.5-pro"):
         self.client = OpenAI(api_key=key or os.getenv("OPENAI_API_KEY"))
         self.client.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
         self.system_prompt = self.get_system_prompt(
